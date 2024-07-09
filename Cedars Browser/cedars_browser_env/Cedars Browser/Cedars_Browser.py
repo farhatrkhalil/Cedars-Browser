@@ -20,13 +20,16 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.browser = QWebEngineView()
-        self.browser.setUrl(QUrl('http://google.com'))
+        self.browser.setUrl(QUrl('http://google.com'))  # Starting with HTTP for demonstration
         self.setCentralWidget(self.browser)
         self.showMaximized()
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         app_icon = QIcon(os.path.join(current_dir, 'icons', 'app_icon.png'))
         self.setWindowIcon(app_icon)
+
+        # Connect the browser's urlChanged signal to update_url method
+        self.browser.urlChanged.connect(self.update_url)
 
         # Inject custom CSS for scrollbars
         self.browser.page().profile().scripts().insert(self.custom_css_script())
@@ -83,6 +86,11 @@ class MainWindow(QMainWindow):
         zoom_out_btn.setCursor(Qt.PointingHandCursor)
         navbar.addWidget(zoom_out_btn)
 
+        # Zoom percentage label
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setStyleSheet("font-size: 14px; margin-left: 5px; margin-right: 5px;")
+        navbar.addWidget(self.zoom_label)
+
         # Add zoom in button
         zoom_in_btn = QToolButton(self)
         zoom_in_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'zoom_in.png')))
@@ -98,7 +106,7 @@ class MainWindow(QMainWindow):
         options_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'options.png')))
         options_btn.setPopupMode(QToolButton.InstantPopup)
         options_btn.setCursor(Qt.PointingHandCursor)
-        options_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }")  # Remove dropdown indicator
+        options_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }") 
         navbar.addWidget(options_btn)
 
         # Create options menu
@@ -148,13 +156,33 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def navigate_to_url(self):
         input_text = self.url_bar.text().strip()
-        if input_text and not input_text.startswith('http://') and not input_text.startswith('https://'):
-            # If not a complete URL, construct Google search URL
-            search_url = f"https://www.google.com/search?q={input_text}"
-            self.browser.setUrl(QUrl(search_url))
-        else:
-            # If it's a complete URL, load it directly  
-            self.urlChanged.emit(QUrl(input_text))
+        if input_text:
+            if not input_text.startswith('http://') and not input_text.startswith('https://'):
+                if input_text.startswith('http'):
+                    full_url = QUrl(f"http://www.google.com/search?q={input_text}")
+                else:
+                    full_url = QUrl(f"https://www.google.com/search?q={input_text}")
+            else:
+                full_url = QUrl(input_text)
+
+            # Check if the URL starts with HTTPS
+            if full_url.scheme() != 'https':
+                self.show_error_page("Only HTTPS sites are allowed.")
+            else:
+                # Navigate to the constructed URL
+                self.browser.setUrl(full_url)
+
+    def show_error_page(self, error_message):
+        error_html = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+                <h1 style="color: #333; font-size: 28px; margin-bottom: 20px;">{error_message}</h1>
+                <p style="color: #666; font-size: 18px;">You will be redirected to the main page shortly.</p>
+            </body>
+        </html>
+        """
+        self.browser.setHtml(error_html, QUrl('error://site_not_allowed'))
+        QTimer.singleShot(5000, self.navigate_home)
 
     @pyqtSlot(QUrl)
     def update_url(self, q):
@@ -169,11 +197,17 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def zoom_in(self):
-        self.browser.setZoomFactor(self.browser.zoomFactor() + 0.1)
+        current_zoom = int(self.browser.zoomFactor() * 100)
+        new_zoom = min(300, current_zoom + 10)  # Limit maximum zoom to 300%
+        self.browser.setZoomFactor(new_zoom / 100)
+        self.zoom_label.setText(f"{new_zoom}%")
 
     @pyqtSlot()
     def zoom_out(self):
-        self.browser.setZoomFactor(self.browser.zoomFactor() - 0.1)
+        current_zoom = int(self.browser.zoomFactor() * 100)
+        new_zoom = max(10, current_zoom - 10)  # Limit minimum zoom to 10%
+        self.browser.setZoomFactor(new_zoom / 100)
+        self.zoom_label.setText(f"{new_zoom}%")
 
     @pyqtSlot()
     def open_settings(self):
@@ -186,7 +220,7 @@ class MainWindow(QMainWindow):
         print("Opening History")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     app = QApplication(sys.argv)
     QApplication.setApplicationName('Cedars Browser')
     window = MainWindow()
