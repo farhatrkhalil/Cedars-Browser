@@ -13,13 +13,23 @@ class ClickableLineEdit(QLineEdit):
         super().mousePressEvent(event)
         self.clicked.emit()
 
+class CustomWebEngineView(QWebEngineView):
+    def __init__(self):
+        super().__init__()
+
+    def contextMenuEvent(self, event):
+        event.ignore()
+
+class NoRightClickToolButton(QToolButton):
+    def contextMenuEvent(self, event):
+        event.ignore()
 
 class MainWindow(QMainWindow):
     urlChanged = pyqtSignal(QUrl)
 
     def __init__(self):
         super(MainWindow, self).__init__()
-        self.browser = QWebEngineView()
+        self.browser = CustomWebEngineView()
         self.browser.setUrl(QUrl('http://google.com'))  # Starting with HTTP for demonstration
         self.setCentralWidget(self.browser)
         self.showMaximized()
@@ -42,25 +52,25 @@ class MainWindow(QMainWindow):
         # Get current directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        back_btn = QToolButton(self)
+        back_btn = NoRightClickToolButton(self)
         back_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'back.png')))
         back_btn.clicked.connect(self.browser.back)
         back_btn.setCursor(Qt.PointingHandCursor)
         navbar.addWidget(back_btn)
 
-        forward_btn = QToolButton(self)
+        forward_btn = NoRightClickToolButton(self)
         forward_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'forward.png')))
         forward_btn.clicked.connect(self.browser.forward)
         forward_btn.setCursor(Qt.PointingHandCursor)
         navbar.addWidget(forward_btn)
 
-        reload_btn = QToolButton(self)
+        reload_btn = NoRightClickToolButton(self)
         reload_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'reload.png')))
         reload_btn.clicked.connect(self.browser.reload)
         reload_btn.setCursor(Qt.PointingHandCursor)
         navbar.addWidget(reload_btn)
 
-        home_btn = QToolButton(self)
+        home_btn = NoRightClickToolButton(self)
         home_btn.setIcon(QIcon(os.path.join(current_dir, 'icons', 'home.png')))
         home_btn.clicked.connect(self.navigate_home)
         home_btn.setCursor(Qt.PointingHandCursor)
@@ -68,14 +78,28 @@ class MainWindow(QMainWindow):
 
         self.url_bar = ClickableLineEdit()
         self.url_bar.setMinimumHeight(40)
-        self.url_bar.setStyleSheet("font-size: 22px;")
+        self.url_bar.setCursor(Qt.IBeamCursor)
+        self.url_bar.setStyleSheet("""
+            font-size: 22px;
+            margin: 7px;
+            padding: 7px;
+            border-radius: 15px;
+            border: 1px solid #ccc;
+            width: 400px;
+        }
+        ClickableLineEdit:focus {
+            border: 2px solid #000; /* Change the border color and width when focused */
+        }
+        """)
         self.url_bar.returnPressed.connect(self.navigate_to_url)
         self.url_bar.clicked.connect(self.url_bar.selectAll)
         navbar.addWidget(self.url_bar)
 
+
         # SSL lock icon
         self.ssl_icon = QLabel()
-        self.ssl_icon.setPixmap(QIcon(os.path.join(current_dir, 'icons', 'ssl.png')).pixmap(20, 20))
+        self.ssl_icon.setPixmap(QIcon(os.path.join(current_dir, 'icons', 'ssl.png')).pixmap(25, 25))
+        self.ssl_icon.setStyleSheet("margin-right: 40px;")
         navbar.addWidget(self.ssl_icon)
         self.ssl_icon.setVisible(False)
 
